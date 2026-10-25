@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>X576 bot admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #edf1f6;
+    --surface: #ffffff;
+    --ink: #13243b;
+    --muted: #586a80;
+    --line: #d3dce8;
+    --lit: #e9a23b;
+    --dim: #dfe6ef;
+    --bad: #c0392b;
+    --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1a2b;
+      --surface: #152640;
+      --ink: #e6edf6;
+      --muted: #94a5bb;
+      --line: #27415f;
+      --lit: #f2b24c;
+      --dim: #22385a;
+      --bad: #ff7b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.5 var(--font-body);
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 64px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  h1 { font: 800 24px/1.1 var(--font-display); margin: 0; letter-spacing: -0.01em; }
+  h2 { font: 600 18px/1.2 var(--font-display); margin: 0 0 4px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  [hidden] { display: none !important; }
+
+  .conn { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); border: 1px solid var(--line); }
+  .dot.on { background: var(--lit); border-color: var(--lit); }
+  .dot.off { background: var(--bad); border-color: var(--bad); }
+
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--lit); outline-offset: 2px; }
+  .btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); font-weight: 600; }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.small { min-height: 36px; padding: 0 12px; font-size: 14px; }
+  .btn.danger { background: transparent; color: var(--bad); border-color: var(--bad); }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input, textarea { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+  textarea { min-height: 96px; resize: vertical; }
+  .error { color: var(--bad); margin-top: 10px; }
+
+  /* Level meter: lit = sent, red = failed, dim = unused */
+  .meter { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; height: 40px; margin: 14px 0 10px; }
+  .meter i { border-radius: 3px; background: var(--dim); }
+  .meter i.ok { background: var(--lit); }
+  .meter i.fail { background: var(--bad); }
+  .total { font: 800 44px/1 var(--font-display); letter-spacing: -0.02em; }
+  .figures { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 4px; }
+  .figures span b { font-weight: 600; color: var(--ink); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stats div { min-width: 0; }
+  .stats b { display: block; font: 600 22px/1.2 var(--font-display); }
+  .stats span { font-size: 13px; color: var(--muted); }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; padding-top: 4px; }
+  .row .text { min-width: 0; }
+  .row .text strong { display: block; }
+  .switch { flex: none; width: 52px; height: 30px; border-radius: 15px; border: 1px solid var(--line); background: var(--dim); position: relative; padding: 0; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); transition: transform .15s; }
+  .switch[aria-checked="true"] { background: var(--ink); border-color: var(--ink); }
+  .switch[aria-checked="true"]::after { transform: translateX(22px); background: var(--lit); border-color: var(--lit); }
+
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .seg button { min-height: 40px; min-width: 52px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+  ul.users { list-style: none; margin: 12px 0 0; padding: 0; }
+  .user { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .who strong { overflow-wrap: anywhere; }
+  .id { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tag { font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); }
+  .tag.bad { color: var(--bad); border-color: var(--bad); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .empty { padding: 14px 0 2px; }
+
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  #toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .switch::after, #toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>X576 bot admin</h1>
+    <div class="conn"><span class="dot" id="dot"></span><span id="connText">Not connected</span></div>
+  </header>
+
+  <section id="connect" hidden>
+    <h2>Connect to your bot</h2>
+    <p class="muted small">Start the bot with a WEB_TOKEN, then paste the bot link and the same token here. They are saved only in this browser.</p>
+    <label for="url">Bot link</label>
+    <input id="url" type="url" inputmode="url" autocomplete="off" placeholder="https://your-tunnel.trycloudflare.com">
+    <label for="token">Token</label>
+    <input id="token" type="password" autocomplete="off" placeholder="The WEB_TOKEN you set">
+    <p class="error" id="connError" hidden></p>
+    <p style="margin-top:16px"><button class="btn" id="connectBtn">Connect</button></p>
+  </section>
+
+  <div id="dash" hidden>
+    <section>
+      <h2>Videos sent</h2>
+      <div class="total" id="total">0</div>
+      <div class="meter" id="meter" aria-hidden="true"></div>
+      <div class="figures small muted">
+        <span><b id="okN">0</b> sent</span>
+        <span><b id="failN">0</b> failed</span>
+      </div>
+      <div class="stats">
+        <div><b id="usersN">0</b><span>users</span></div>
+        <div><b id="activeN">0</b><span>active today</span></div>
+        <div><b id="runningN">0</b><span>downloading now</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Controls</h2>
+      <div id="switches"></div>
+      <div class="row" style="display:block">
+        <strong>Videos per batch</strong>
+        <p class="muted small">How many videos the bot sends at once from a playlist or profile.</p>
+        <div class="seg" id="limits" role="group" aria-label="Videos per batch"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Users</h2>
+      <input id="search" type="search" placeholder="Search by name or ID" aria-label="Search users">
+      <ul class="users" id="users"></ul>
+    </section>
+
+    <section>
+      <h2>Message all users</h2>
+      <p class="muted small">Sends a Telegram message to everyone who has used the bot.</p>
+      <label for="msg">Message</label>
+      <textarea id="msg" maxlength="3500"></textarea>
+      <p style="margin-top:12px"><button class="btn" id="sendBtn">Send to all users</button></p>
+    </section>
+
+    <p class="muted small">yt-dlp <span id="ver"></span>. <button class="btn ghost small" id="editConn">Change connection</button></p>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+  var api = {
+    url: store.get("x576.url") || (isLocal ? location.origin : ""),
+    token: store.get("x576.token")
+  };
+  var state = { stats: null, users: [], q: "" };
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    var t = $("#toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 3000);
+  }
+
+  function call(path, body) {
+    var opts = { headers: { "Authorization": "Bearer " + api.token } };
+    if (body) {
+      opts.method = "POST";
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(api.url.replace(/\/+$/, "") + path, opts).then(function (res) {
+      if (res.status === 401) throw new Error("auth");
+      return res.json().catch(function () { return {}; }).then(function (j) {
+        if (!res.ok) throw new Error(j.error || ("Request failed (" + res.status + ")"));
+        return j;
+      });
+    });
+  }
+
+  function setConn(kind, text) {
+    $("#dot").className = "dot " + kind;
+    $("#connText").textContent = text;
+  }
+
+  function showConnect(msg) {
+    $("#connect").hidden = false;
+    $("#dash").hidden = true;
+    $("#url").value = api.url;
+    $("#token").value = api.token;
+    var err = $("#connError");
+    err.hidden = !msg;
+    err.textContent = msg || "";
+  }
+
+  function fail(e) {
+    if (e.message === "auth") {
+      setConn("off", "Token rejected");
+      showConnect("The bot did not accept this token. Copy the WEB_TOKEN value you started the bot with and paste it again.");
+    } else {
+      setConn("off", "Cannot reach bot");
+      showConnect("Cannot reach the bot. Check that the bot and the tunnel are running, then paste the current bot link.");
+    }
+  }
+
+  function refresh() {
+    if (!api.url || !api.token) { showConnect(); return Promise.resolve(); }
+    return Promise.all([call("/api/stats"), call("/api/users")]).then(function (r) {
+      state.stats = r[0];
+      state.users = r[1].users;
+      $("#connect").hidden = true;
+      $("#dash").hidden = false;
+      setConn("on", "Connected");
+      render();
+    }).catch(fail);
+  }
+
+  /* ---------- rendering ---------- */
+  var SWITCHES = [
+    { key: "private", title: "Private mode", desc: "Only allowed users and admins can download." },
+    { key: "paused", title: "Pause the bot", desc: "Everyone except admins sees a message that the bot is paused." },
+    { key: "debug", title: "Show raw errors", desc: "Users see the technical error instead of a short message." }
+  ];
+  var LIMITS = [5, 10, 20, 50];
+
+  function buildControls() {
+    var box = $("#switches");
+    SWITCHES.forEach(function (s) {
+      var row = el("div", "row");
+      var text = el("div", "text");
+      text.append(el("strong", "", s.title), el("span", "muted small", s.desc));
+      var sw = el("button", "switch");
+      sw.type = "button";
+      sw.setAttribute("role", "switch");
+      sw.setAttribute("aria-label", s.title);
+      sw.dataset.key = s.key;
+      sw.addEventListener("click", function () {
+        var body = {};
+        body[s.key] = !(state.stats && state.stats[s.key]);
+        sw.disabled = true;
+        call("/api/settings", body).then(function (st) {
+          state.stats = st;
+          render();
+          toast(s.title + (st[s.key] ? " turned on" : " turned off"));
+        }).catch(function (e) { toast(e.message); }).then(function () { sw.disabled = false; });
+      });
+      row.append(text, sw);
+      box.append(row);
+    });
+    var seg = $("#limits");
+    LIMITS.forEach(function (n) {
+      var b = el("button", "", String(n));
+      b.type = "button";
+      b.dataset.n = n;
+      b.addEventListener("click", function () {
+        call("/api/settings", { limit: n }).then(function (st) {
+          state.stats = st;
+          render();
+          toast("Batch size set to " + n);
+        }).catch(function (e) { toast(e.message); });
+      });
+      seg.append(b);
+    });
+  }
+
+  function renderMeter(ok, bad) {
+    var meter = $("#meter");
+    var total = ok + bad;
+    var okSeg = total ? Math.round(24 * ok / total) : 0;
+    var badSeg = total ? Math.min(24 - okSeg, Math.max(bad ? 1 : 0, Math.round(24 * bad / total))) : 0;
+    if (total && ok && !okSeg) okSeg = 1;
+    meter.textContent = "";
+    for (var i = 0; i < 24; i++) {
+      var seg = document.createElement("i");
+      if (i < okSeg) seg.className = "ok";
+      else if (i >= 24 - badSeg) seg.className = "fail";
+      meter.append(seg);
+    }
+  }
+
+  function render() {
+    var s = state.stats;
+    $("#total").textContent = s.ok.toLocaleString();
+    $("#okN").textContent = s.ok.toLocaleString();
+    $("#failN").textContent = s.fail.toLocaleString();
+    $("#usersN").textContent = s.users.toLocaleString();
+    $("#activeN").textContent = s.active24.toLocaleString();
+    $("#runningN").textContent = s.active.toLocaleString();
+    $("#ver").textContent = s.ytdlp;
+    renderMeter(s.ok, s.fail);
+    document.querySelectorAll(".switch").forEach(function (sw) {
+      sw.setAttribute("aria-checked", s[sw.dataset.key] ? "true" : "false");
+    });
+    document.querySelectorAll("#limits button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.n) === s.limit));
+    });
+    renderUsers();
+  }
+
+  function ago(ts) {
+    if (!ts) return "never active";
+    var m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60));
+    if (m < 2) return "active just now";
+    if (m < 60) return "active " + m + " min ago";
+    var h = Math.round(m / 60);
+    if (h < 48) return "active " + h + " h ago";
+    return "active " + Math.round(h / 24) + " days ago";
+  }
+
+  function userAction(u, action, doneText) {
+    return call("/api/user", { id: u.id, action: action }).then(function () {
+      toast(doneText + " " + u.id);
+      return refresh();
+    }).catch(function (e) { toast(e.message); });
+  }
+
+  function renderUsers() {
+    var list = $("#users");
+    list.textContent = "";
+    var q = state.q.trim().toLowerCase();
+    var rows = state.users.filter(function (u) {
+      return !q || String(u.id).indexOf(q) !== -1 || String(u.name).toLowerCase().indexOf(q) !== -1;
+    });
+    if (!rows.length) {
+      list.append(el("li", "empty muted", state.users.length
+        ? "No user matches this search."
+        : "No users yet. They appear here after they message the bot."));
+      return;
+    }
+    rows.forEach(function (u) {
+      var li = el("li", "user");
+      var who = el("div", "who");
+      who.append(el("strong", "", u.name || "Unknown"), el("span", "id", String(u.id)));
+      if (u.banned) who.append(el("span", "tag bad", "Banned"));
+      else if (u.allowed) who.append(el("span", "tag", "Allowed"));
+      var meta = el("div", "muted small", u.downloads + (u.downloads === 1 ? " download" : " downloads") + ", " + ago(u.last));
+      var acts = el("div", "actions");
+      var allow = el("button", "btn ghost small", u.allowed ? "Remove access" : "Allow");
+      allow.type = "button";
+      allow.addEventListener("click", function () {
+        allow.disabled = true;
+        userAction(u, u.allowed ? "disallow" : "allow", u.allowed ? "Removed access for" : "Allowed");
+      });
+      var ban = el("button", u.banned ? "btn ghost small" : "btn danger small", u.banned ? "Unban" : "Ban");
+      ban.type = "button";
+      ban.addEventListener("click", function () {
+        ban.disabled = true;
+        userAction(u, u.banned ? "unban" : "ban", u.banned ? "Unbanned" : "Banned");
+      });
+      acts.append(allow, ban);
+      li.append(who, meta, acts);
+      list.append(li);
+    });
+  }
+
+  /* ---------- events ---------- */
+  $("#connectBtn").addEventListener("click", function () {
+    api.url = $("#url").value.trim();
+    api.token = $("#token").value.trim();
+    store.set("x576.url", api.url);
+    store.set("x576.token", api.token);
+    setConn("", "Connecting");
+    refresh();
+  });
+  $("#editConn").addEventListener("click", function () { showConnect(); });
+  $("#search").addEventListener("input", function (e) { state.q = e.target.value; renderUsers(); });
+  $("#sendBtn").addEventListener("click", function () {
+    var text = $("#msg").value.trim();
+    if (!text) { toast("Write a message first"); return; }
+    var n = state.stats ? state.stats.users : 0;
+    if (!confirm("Send this message to " + n + " users?")) return;
+    var btn = $("#sendBtn");
+    btn.disabled = true;
+    call("/api/broadcast", { text: text }).then(function (r) {
+      toast("Sent to " + r.sent + ", " + r.failed + " failed");
+      $("#msg").value = "";
+    }).catch(function (e) { toast(e.message); }).then(function () { btn.disabled = false; });
+  });
+
+  buildControls();
+  refresh();
+  setInterval(function () {
+    if (!document.hidden && !$("#dash").hidden) refresh();
+  }, 20000);
+})();
+</script>
+</body>
+  </html>
