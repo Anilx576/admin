@@ -135,7 +135,7 @@
   .grant .input { flex: 1 1 140px; min-height: 38px; }
   .empty { text-align: center; padding: 28px 10px; color: var(--muted); }
 
-  .pack { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; padding: 10px 0; border-top: 1px solid var(--line); }
+  .pack { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; padding: 10px 0; border-top: 1px solid var(--line); }
   .pack:first-of-type { border-top: 0; }
   .pack label { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
   .pay { display: flex; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -228,7 +228,7 @@
     <section class="tab" data-tab="money" hidden>
       <div class="kpis">
         <div class="kpi gold"><div class="v" id="mRev">0</div><div class="l">⭐ Total Stars</div></div>
-        <div class="kpi"><div class="v" id="mPay">0</div><div class="l">Payments</div></div>
+        <div class="kpi"><div class="v" id="mInr">0</div><div class="l">₹ UPI kamai</div></div>
         <div class="kpi"><div class="v" id="mCred">0</div><div class="l">Users ke bache credits</div></div>
       </div>
       <div class="card">
@@ -239,6 +239,11 @@
           <button class="btn ghost sm" id="addPack">+ Pack add karo</button>
           <button class="btn sm" id="savePacks">Packs save karo</button>
         </div>
+      </div>
+      <div class="card">
+        <h2>UPI payments check karo</h2>
+        <p class="muted small">Screenshot dekh kar approve ya reject karo. Approve par credits apne aap jud jaate hain.</p>
+        <div id="upiList"></div>
       </div>
       <div class="card">
         <h2>Recent payments</h2>
@@ -437,11 +442,12 @@
     if (!conn.url || !conn.token) { showConnect(); return Promise.resolve(); }
     var a = document.activeElement;
     if (!force && a && /INPUT|TEXTAREA/.test(a.tagName)) return Promise.resolve();
-    return Promise.all([call("/api/stats"), call("/api/users"), call("/api/payments")]).then(function (r) {
+    return Promise.all([call("/api/stats"), call("/api/users"), call("/api/payments"), call("/api/upi")]).then(function (r) {
       S.stats = r[0];
       S.users = r[1].users;
       S.payments = r[2].payments;
-      if (!S.packsDirty) S.packs = (r[0].packs || []).map(function (p) { return { credits: p.credits, stars: p.stars }; });
+      S.upi = r[3];
+      if (!S.packsDirty) S.packs = (r[0].packs || []).map(function (p) { return { credits: p.credits, stars: p.stars, inr: p.inr }; });
       showApp();
       setStatus("on", "Connected");
       set("#sub", "Live · yt-dlp " + r[0].ytdlp);
@@ -455,6 +461,7 @@
     renderOverview();
     renderUsers();
     renderMoney();
+    renderUpi();
     renderSettings();
   }
 
@@ -559,7 +566,7 @@
   function renderMoney() {
     var s = S.stats;
     set("#mRev", fmt(s.revenue));
-    set("#mPay", fmt(s.payments_count));
+    set("#mInr", "₹" + fmt(s.upi_inr));
     set("#mCred", fmt(s.credits_total));
 
     var box = $("#packs");
@@ -568,13 +575,14 @@
       var row = el("div", "pack");
       var c = numField("Credits", p.credits, function (v) { p.credits = v; S.packsDirty = true; });
       var st = numField("⭐ Stars", p.stars, function (v) { p.stars = v; S.packsDirty = true; });
+      var inr = numField("₹ INR", p.inr, function (v) { p.inr = v; S.packsDirty = true; });
       var del = btn("✕", "btn ghost sm", function () {
         S.packs.splice(i, 1);
         S.packsDirty = true;
         renderMoney();
       });
       del.setAttribute("aria-label", "Pack hatao");
-      row.append(c, st, del);
+      row.append(c, st, inr, del);
       box.append(row);
     });
     if (!S.packs.length) box.append(el("p", "muted small", "Koi pack nahi. Ek add karo."));
@@ -584,7 +592,8 @@
     if (!S.payments.length) pl.append(el("p", "muted small", "Abhi koi payment nahi aaya."));
     S.payments.forEach(function (p) {
       var r = el("div", "pay");
-      r.append(el("span", "muted", when(p.ts) + " · ID " + p.uid), el("strong", "", "+" + p.credits + " · ⭐" + p.stars));
+      var amt = p.method === "upi" ? "₹" + p.inr : "⭐" + p.stars;
+      r.append(el("span", "muted", when(p.ts) + " · ID " + p.uid), el("strong", "", "+" + p.credits + " · " + amt));
       pl.append(r);
     });
   }
@@ -612,6 +621,39 @@
       b.setAttribute("aria-pressed", String(Number(b.dataset.limit) === s.limit));
     });
     set("#ver", s.ytdlp);
+  }
+
+  function renderUpi() {
+    var box = $("#upiList");
+    if (!box) return;
+    box.textContent = "";
+    var list = (S.upi && S.upi.pending) || [];
+    if (!list.length) {
+      box.append(el("p", "muted small", "Abhi koi UPI payment pending nahi hai."));
+      return;
+    }
+    list.forEach(function (p) {
+      var card = el("div", "u");
+      var info = el("div", "uinfo");
+      info.append(
+        el("strong", "", (p.name || "?") + " (ID " + p.uid + ")"),
+        el("div", "muted small", p.credits + " credits · ₹" + p.inr + " · Ref " + p.pay)
+      );
+      var acts = el("div", "acts");
+      acts.append(
+        btn("✅ Approve", "btn sm", function () { decideUpi(p.pay, "approve"); }),
+        btn("❌ Reject", "btn danger sm", function () { decideUpi(p.pay, "reject"); })
+      );
+      card.append(info, acts);
+      box.append(card);
+    });
+  }
+
+  function decideUpi(pay, decision) {
+    return call("/api/upi", { pay: pay, decision: decision }).then(function () {
+      toast(decision === "approve" ? "Approve ho gaya, credits jud gaye" : "Reject ho gaya");
+      return refresh(true);
+    }).catch(onErr);
   }
 
   /* ---------- actions ---------- */
@@ -644,7 +686,7 @@
     });
     if (!ok) { toast("Har pack me 1 se 10000 ke beech number daalo (1 se 6 packs)"); return; }
     return call("/api/packs", { packs: S.packs }).then(function (r) {
-      S.packs = r.packs.map(function (p) { return { credits: p.credits, stars: p.stars }; });
+      S.packs = r.packs.map(function (p) { return { credits: p.credits, stars: p.stars, inr: p.inr }; });
       S.packsDirty = false;
       if (S.stats) S.stats.packs = r.packs;
       renderMoney();
@@ -721,7 +763,7 @@
   $("#search").addEventListener("input", function (e) { S.q = e.target.value; renderUsers(); });
   $("#addPack").addEventListener("click", function () {
     if (S.packs.length >= 6) { toast("Max 6 packs ho sakte hain"); return; }
-    S.packs.push({ credits: 10, stars: 40 });
+    S.packs.push({ credits: 10, stars: 40, inr: 30 });
     S.packsDirty = true;
     renderMoney();
   });
